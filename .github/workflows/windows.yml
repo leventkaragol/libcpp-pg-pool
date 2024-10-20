@@ -1,0 +1,61 @@
+name: windows
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up environment
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          choco install git
+          choco install ninja
+
+      - name: Install vcpkg
+        run: |
+          if (Test-Path "C:\vcpkg") {
+            Remove-Item "C:\vcpkg" -Recurse -Force
+          }
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & "C:\vcpkg\bootstrap-vcpkg.bat"
+          echo "VCPKG_ROOT=C:\vcpkg" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+
+      - name: Integrate vcpkg
+        run: |
+          $env:VCPKG_ROOT = "C:\vcpkg"
+          & "$env:VCPKG_ROOT\vcpkg" integrate install
+
+      - name: Install dependencies
+        run: |
+          $env:VCPKG_ROOT = "C:\vcpkg"
+          cd $env:GITHUB_WORKSPACE
+          & "$env:VCPKG_ROOT\vcpkg" install
+
+      - name: Prepare build environment
+        run: |
+          $env:CMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}\scripts\buildsystems\vcpkg.cmake"
+          echo "CMAKE_TOOLCHAIN_FILE=${env:CMAKE_TOOLCHAIN_FILE}" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          echo "CMAKE_TOOLCHAIN_FILE is set to ${env:CMAKE_TOOLCHAIN_FILE}"
+
+      - name: Configure CMake project
+        run: |
+          echo "Using CMAKE_TOOLCHAIN_FILE: ${env:CMAKE_TOOLCHAIN_FILE}"
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${env:CMAKE_TOOLCHAIN_FILE}"
+
+      - name: Build the project
+        run: |
+          cmake --build build --config Release
+
+      - name: Run tests
+        run: |
+          & "D:\a\libcpp-pg-pool\libcpp-pg-pool\build\test\Release\test.exe"

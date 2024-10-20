@@ -1,0 +1,45 @@
+name: linux
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+      - name: Enable core dumps
+        run: ulimit -c unlimited
+      - uses: actions/checkout@v3
+      - name: Install prerequisites
+        run: |
+          apt update
+          apt install -y build-essential g++ make cmake pkg-config git wget curl zip unzip tar gdb
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
+          /opt/vcpkg/bootstrap-vcpkg.sh
+          ln -s /opt/vcpkg/vcpkg /usr/local/bin/vcpkg
+      - name: Clone project repository
+        run: |
+          git clone https://github.com/leventkaragol/libcpp-pg-pool.git /root/libcpp-pg-pool
+      - name: Run cmake with vcpkg toolchain
+        run: |
+          cd /root/libcpp-pg-pool
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+      - name: Build the project
+        run: |
+          cd /root/libcpp-pg-pool
+          cmake --build build --config Release
+      - name: Run tests with gdb
+        run: |
+          cd /root/libcpp-pg-pool
+          gdb -ex "run" -ex "bt" -ex "quit" --args ./build/test/test
