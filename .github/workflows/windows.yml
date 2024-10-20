@@ -23,13 +23,12 @@ jobs:
       - name: Install prerequisites
         run: |
           choco install -y cmake git make mingw
+          setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
+          setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\make\tools\install\bin"
           refreshenv
 
       - name: Install GDB with MinGW
         run: |
-          choco install mingw --version=13.2.0
-          refreshenv
-          setx PATH "%PATH%;C:\tools\mingw64\bin"
           mingw-get install gdb
         shell: cmd
 
