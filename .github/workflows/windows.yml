@@ -16,25 +16,41 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install Chocolatey
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force; `
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
+          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
       - name: Install PostgreSQL
-        run: choco install -y postgresql
+        shell: powershell
+        run: |
+          choco install -y postgresql16
+
+      - name: Add PostgreSQL bin to PATH
+        shell: powershell
+        run: |
+          $env:PATH += ';C:\Program Files\PostgreSQL\16\bin'
+          [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine)
 
       - name: Start PostgreSQL service
-        run: net start postgresql-x64-15
+        shell: powershell
+        run: net start postgresql-x64-16
 
       - name: Setup PostgreSQL user and database
-        shell: pwsh
+        shell: powershell
         run: |
           $env:PGPASSWORD = 'my_password'
-          $psql = 'C:\Program Files\PostgreSQL\15\bin\psql.exe'
+          $psql = 'C:\Program Files\PostgreSQL\16\bin\psql.exe'
           & $psql -U postgres -c "CREATE USER my_user WITH PASSWORD 'my_password';"
           & $psql -U postgres -c "CREATE DATABASE my_db OWNER my_user;"
 
       - name: Wait for PostgreSQL to be ready
-        shell: pwsh
+        shell: powershell
         run: |
           $env:PGPASSWORD = 'my_password'
-          $psql = 'C:\Program Files\PostgreSQL\15\bin\psql.exe'
+          $psql = 'C:\Program Files\PostgreSQL\16\bin\psql.exe'
           while ($true) {
             try {
               & $psql -U my_user -d my_db -c "SELECT 1;" | Out-Null
@@ -46,18 +62,37 @@ jobs:
           }
 
       - name: Create table in the database
+        shell: powershell
         run: |
-          set PGPASSWORD=my_password
-          "C:\Program Files\PostgreSQL\15\bin\psql.exe" -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
+          $env:PGPASSWORD = 'my_password'
+          $psql = 'C:\Program Files\PostgreSQL\16\bin\psql.exe'
+          & $psql -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
 
-      - name: Build the project
+      - name: Install prerequisites
+        shell: powershell
+        run: |
+          choco install -y git cmake visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional"
+
+      - name: Install vcpkg
+        shell: powershell
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          cd C:\vcpkg
+          .\bootstrap-vcpkg.bat
+
+      - name: Clone project repository
         run: |
           git clone https://github.com/leventkaragol/libcpp-pg-pool.git C:\libcpp-pg-pool
+
+      - name: Build the project
+        shell: powershell
+        run: |
           cd C:\libcpp-pg-pool
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
           cmake --build build --config Release
 
       - name: Run tests
+        shell: powershell
         run: |
-          cd C:\libcpp-pg-pool
-          .\build\test\Release\test.exe
+          cd C:\libcpp-pg-pool\build\test\Release
+          .\test.exe
