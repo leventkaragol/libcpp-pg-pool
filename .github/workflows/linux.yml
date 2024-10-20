@@ -54,12 +54,6 @@ jobs:
           cd /root/libcpp-pg-pool
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-      - name: Check if Postgres is running
-        run: docker ps
-
-      - name: Check Postgres logs
-        run: docker logs $(docker ps -q --filter ancestor=postgres)
-
       - name: Build the project
         run: |
           cd /root/libcpp-pg-pool
