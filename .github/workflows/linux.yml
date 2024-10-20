@@ -15,30 +15,63 @@ jobs:
     container:
       image: ubuntu:24.04
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: my_db
+          POSTGRES_USER: my_user
+          POSTGRES_PASSWORD: my_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U my_user -d my_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Enable core dumps
         run: ulimit -c unlimited
+
       - uses: actions/checkout@v3
+
       - name: Install prerequisites
         run: |
           apt update
-          apt install -y build-essential g++ make cmake pkg-config git wget curl zip unzip tar gdb
+          apt install -y build-essential g++ make cmake pkg-config git wget curl zip unzip tar gdb postgresql-client
+
       - name: Install vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
           /opt/vcpkg/bootstrap-vcpkg.sh
           ln -s /opt/vcpkg/vcpkg /usr/local/bin/vcpkg
+
       - name: Clone project repository
         run: |
           git clone https://github.com/leventkaragol/libcpp-pg-pool.git /root/libcpp-pg-pool
+
       - name: Run cmake with vcpkg toolchain
         run: |
           cd /root/libcpp-pg-pool
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+
       - name: Build the project
         run: |
           cd /root/libcpp-pg-pool
           cmake --build build --config Release
+
+      - name: Wait for Postgres to be ready
+        run: |
+          until pg_isready -h localhost -p 5432 -U my_user; do
+            echo "Waiting for postgres...";
+            sleep 2;
+          done
+
+      - name: Create table in the database
+        run: |
+          PGPASSWORD=my_password psql -h localhost -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
+
       - name: Run tests with gdb
         run: |
           cd /root/libcpp-pg-pool
