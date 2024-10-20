@@ -12,50 +12,59 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+
     steps:
+      - name: Enable core dumps
+        run: ulimit -c unlimited
+        shell: bash
+
       - uses: actions/checkout@v3
 
-      - name: Set up environment
+      - name: Install prerequisites
         run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-          choco install git
-          choco install ninja
+          choco install -y cmake git gdb mingw make
+          refreshenv
+
+      - name: Install PostgreSQL
+        run: |
+          choco install -y postgresql
+          refreshenv
+
+      - name: Start PostgreSQL service
+        run: |
+          net start postgresql-x64-14
+
+      - name: Configure PostgreSQL
+        run: |
+          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE DATABASE my_db;"
+          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE USER my_user WITH PASSWORD 'my_password';"
+          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE my_db TO my_user;"
+          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
 
       - name: Install vcpkg
         run: |
-          if (Test-Path "C:\vcpkg") {
-            Remove-Item "C:\vcpkg" -Recurse -Force
-          }
           git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-          & "C:\vcpkg\bootstrap-vcpkg.bat"
-          echo "VCPKG_ROOT=C:\vcpkg" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          C:\vcpkg\bootstrap-vcpkg.bat
+          setx PATH "%PATH%;C:\vcpkg"
 
-      - name: Integrate vcpkg
+      - name: Clone project repository
         run: |
-          $env:VCPKG_ROOT = "C:\vcpkg"
-          & "$env:VCPKG_ROOT\vcpkg" integrate install
+          git clone https://github.com/leventkaragol/libcpp-pg-pool.git C:\libcpp-pg-pool
 
-      - name: Install dependencies
+      - name: Run cmake with vcpkg toolchain
         run: |
-          $env:VCPKG_ROOT = "C:\vcpkg"
-          cd $env:GITHUB_WORKSPACE
-          & "$env:VCPKG_ROOT\vcpkg" install
-
-      - name: Prepare build environment
-        run: |
-          $env:CMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}\scripts\buildsystems\vcpkg.cmake"
-          echo "CMAKE_TOOLCHAIN_FILE=${env:CMAKE_TOOLCHAIN_FILE}" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
-          echo "CMAKE_TOOLCHAIN_FILE is set to ${env:CMAKE_TOOLCHAIN_FILE}"
-
-      - name: Configure CMake project
-        run: |
-          echo "Using CMAKE_TOOLCHAIN_FILE: ${env:CMAKE_TOOLCHAIN_FILE}"
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${env:CMAKE_TOOLCHAIN_FILE}"
+          cd C:\libcpp-pg-pool
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+        shell: cmd
 
       - name: Build the project
         run: |
+          cd C:\libcpp-pg-pool
           cmake --build build --config Release
+        shell: cmd
 
-      - name: Run tests
+      - name: Run tests with gdb
         run: |
-          & "D:\a\libcpp-pg-pool\libcpp-pg-pool\build\test\Release\test.exe"
+          cd C:\libcpp-pg-pool
+          gdb -ex "run" -ex "bt" -ex "quit" --args build\test\test.exe
+        shell: bash
