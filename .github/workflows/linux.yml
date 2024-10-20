@@ -61,14 +61,14 @@ jobs:
 
       - name: Wait for Postgres to be ready
         run: |
-          until pg_isready -h localhost -p 5432 -U my_user; do
+          until pg_isready -h postgres -p 5432 -U my_user; do
             echo "Waiting for postgres...";
             sleep 2;
           done
 
       - name: Create table in the database
         run: |
-          PGPASSWORD=my_password psql -h localhost -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
+          PGPASSWORD=my_password psql -h postgres -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
 
       - name: Run tests with gdb
         run: |
