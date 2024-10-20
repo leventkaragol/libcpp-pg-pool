@@ -1,0 +1,12 @@
+{
+  "name" : "libcpp-pg-pool",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "0d14033fdcb38f20a698986529db720844c36131",
+  "dependencies" : [ {
+    "name" : "gtest",
+    "version>=" : "1.15.2"
+  }, {
+    "name" : "libpqxx",
+    "version>=" : "7.9.2"
+  } ]
+}
