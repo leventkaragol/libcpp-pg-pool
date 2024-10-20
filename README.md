@@ -88,6 +88,10 @@ int main() {
 }
 ```
 
+> [!IMPORTANT]
+> The connection pool size should not exceed PostgreSQL's max_connections limit,
+> otherwise you will get an error like "too many clients"
+
 ## How to use? (Shared Connection)
 
 The return value from the acquire method is a shared pointer and counts shared references. When you open a connection
