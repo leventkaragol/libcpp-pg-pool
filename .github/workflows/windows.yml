@@ -26,7 +26,7 @@ jobs:
       - name: Install PostgreSQL
         shell: powershell
         run: |
-          choco install -y postgresql16
+          choco install -y postgresql16 --params "'/Password:my_password'"
 
       - name: Add PostgreSQL bin to PATH
         shell: powershell
