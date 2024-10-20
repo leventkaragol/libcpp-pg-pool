@@ -39,7 +39,7 @@ jobs:
       - name: Install prerequisites
         run: |
           apt update
-          apt install -y build-essential g++ make cmake pkg-config git wget curl zip unzip tar gdb postgresql-client bison flex
+          apt install -y build-essential g++ make cmake pkg-config git wget curl zip unzip tar gdb postgresql-client bison flex autoconf
 
       - name: Install vcpkg
         run: |
