@@ -57,7 +57,7 @@ TEST(PgPoolTest, SharedConnection)
 {
     const auto connectionString = "dbname=my_db user=my_user password=my_password host=localhost port=5432";
 
-    PgPool pool(connectionString);
+    PgPool pool(connectionString, 10);
 
     {
         SampleConsumer myConsumer{};
