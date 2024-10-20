@@ -14,68 +14,50 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Enable core dumps
-        run: ulimit -c unlimited
-        shell: bash
-
       - uses: actions/checkout@v3
 
-      - name: Install prerequisites
-        run: |
-          choco install -y cmake git make mingw
-          setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
-          setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\make\tools\install\bin"
-        shell: cmd
-
-      - name: Install GDB with MinGW
-        run: |
-          mingw-get install gdb
-        shell: cmd
-
       - name: Install PostgreSQL
-        run: |
-          choco install -y postgresql
-        shell: cmd
+        run: choco install -y postgresql
 
       - name: Start PostgreSQL service
-        run: |
-          net start postgresql-x64-14
-        shell: cmd
+        run: net start postgresql-x64-15
 
-      - name: Configure PostgreSQL
+      - name: Setup PostgreSQL user and database
+        shell: pwsh
         run: |
-          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE DATABASE my_db;"
-          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE USER my_user WITH PASSWORD 'my_password';"
-          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE my_db TO my_user;"
-          "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
-        shell: cmd
+          $env:PGPASSWORD = 'my_password'
+          $psql = 'C:\Program Files\PostgreSQL\15\bin\psql.exe'
+          & $psql -U postgres -c "CREATE USER my_user WITH PASSWORD 'my_password';"
+          & $psql -U postgres -c "CREATE DATABASE my_db OWNER my_user;"
 
-      - name: Install vcpkg
+      - name: Wait for PostgreSQL to be ready
+        shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-          C:\vcpkg\bootstrap-vcpkg.bat
-          setx PATH "%PATH%;C:\vcpkg"
-        shell: cmd
+          $env:PGPASSWORD = 'my_password'
+          $psql = 'C:\Program Files\PostgreSQL\15\bin\psql.exe'
+          while ($true) {
+            try {
+              & $psql -U my_user -d my_db -c "SELECT 1;" | Out-Null
+              break
+            } catch {
+              Write-Host "Waiting for PostgreSQL..."
+              Start-Sleep -Seconds 2
+            }
+          }
 
-      - name: Clone project repository
+      - name: Create table in the database
         run: |
-          git clone https://github.com/leventkaragol/libcpp-pg-pool.git C:\libcpp-pg-pool
-        shell: cmd
-
-      - name: Run cmake with vcpkg toolchain
-        run: |
-          cd C:\libcpp-pg-pool
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
-        shell: cmd
+          set PGPASSWORD=my_password
+          "C:\Program Files\PostgreSQL\15\bin\psql.exe" -U my_user -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
 
       - name: Build the project
         run: |
+          git clone https://github.com/leventkaragol/libcpp-pg-pool.git C:\libcpp-pg-pool
           cd C:\libcpp-pg-pool
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
           cmake --build build --config Release
-        shell: cmd
 
-      - name: Run tests with gdb
+      - name: Run tests
         run: |
           cd C:\libcpp-pg-pool
-          gdb -ex "run" -ex "bt" -ex "quit" --args build\test\test.exe
-        shell: bash
+          .\build\test\Release\test.exe
