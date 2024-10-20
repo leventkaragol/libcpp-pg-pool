@@ -22,8 +22,16 @@ jobs:
 
       - name: Install prerequisites
         run: |
-          choco install -y cmake git gdb mingw make
+          choco install -y cmake git make mingw
           refreshenv
+
+      - name: Install GDB with MinGW
+        run: |
+          choco install mingw --version=13.2.0
+          refreshenv
+          setx PATH "%PATH%;C:\tools\mingw64\bin"
+          mingw-get install gdb
+        shell: cmd
 
       - name: Install PostgreSQL
         run: |
