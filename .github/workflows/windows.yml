@@ -25,7 +25,7 @@ jobs:
           choco install -y cmake git make mingw
           setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
           setx PATH "%PATH%;C:\ProgramData\chocolatey\lib\make\tools\install\bin"
-          refreshenv
+        shell: cmd
 
       - name: Install GDB with MinGW
         run: |
@@ -35,11 +35,12 @@ jobs:
       - name: Install PostgreSQL
         run: |
           choco install -y postgresql
-          refreshenv
+        shell: cmd
 
       - name: Start PostgreSQL service
         run: |
           net start postgresql-x64-14
+        shell: cmd
 
       - name: Configure PostgreSQL
         run: |
@@ -47,16 +48,19 @@ jobs:
           "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE USER my_user WITH PASSWORD 'my_password';"
           "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE my_db TO my_user;"
           "C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -d my_db -c "CREATE TABLE my_table (id SERIAL PRIMARY KEY, description TEXT);"
+        shell: cmd
 
       - name: Install vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
           C:\vcpkg\bootstrap-vcpkg.bat
           setx PATH "%PATH%;C:\vcpkg"
+        shell: cmd
 
       - name: Clone project repository
         run: |
           git clone https://github.com/leventkaragol/libcpp-pg-pool.git C:\libcpp-pg-pool
+        shell: cmd
 
       - name: Run cmake with vcpkg toolchain
         run: |
