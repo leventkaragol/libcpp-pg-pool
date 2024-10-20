@@ -36,7 +36,14 @@ jobs:
 
       - name: Start PostgreSQL service
         shell: powershell
-        run: net start postgresql-x64-16
+        run: |
+          $serviceName = 'postgresql-x64-16'
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($service -and $service.Status -ne 'Running') {
+            net start $serviceName
+          } else {
+            Write-Host "Service $serviceName is already running."
+          }
 
       - name: Setup PostgreSQL user and database
         shell: powershell
@@ -71,7 +78,7 @@ jobs:
       - name: Install prerequisites
         shell: powershell
         run: |
-          choco install -y git cmake visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional"
+          choco install -y git cmake visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional"
 
       - name: Install vcpkg
         shell: powershell
